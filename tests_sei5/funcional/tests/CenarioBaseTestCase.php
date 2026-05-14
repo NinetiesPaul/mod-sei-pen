@@ -361,6 +361,16 @@ class CenarioBaseTestCase extends TestCase
       $this->paginaTramitar->unidade($unidadeDestino, $unidadeDestinoHierarquia);
       $this->paginaTramitar->tramitar();
 
+      if (DESATIVAR_AGENDAMENTO == 'true') {
+        $bancoOrgaoA = new DatabaseUtils(CONTEXTO_ORGAO_A);    
+        $bancoOrgaoA->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('N', 'PENAgendamentoRN::processarTarefasEnvioPEN'));
+        $bancoOrgaoA->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('N', 'PENAgendamentoRN::processarTarefasRecebimentoPEN'));
+
+        $bancoOrgaoB = new DatabaseUtils(CONTEXTO_ORGAO_B);
+        $bancoOrgaoB->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('N', 'PENAgendamentoRN::processarTarefasEnvioPEN'));
+        $bancoOrgaoB->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('N', 'PENAgendamentoRN::processarTarefasRecebimentoPEN'));
+      }
+
     try {
         $mensagemAlerta = $this->paginaTramitar->alertTextAndClose(true);
     } catch (Exception $e) {
@@ -399,6 +409,7 @@ class CenarioBaseTestCase extends TestCase
       }
     }
 
+      $this->executarAgendamentoPENViaBash();
       sleep(1);
   }
 
@@ -423,6 +434,41 @@ class CenarioBaseTestCase extends TestCase
       $this->validarRecibosTramite($mensagemRecibo, true, true);
       $this->validarHistoricoTramite($unidadeDestino, true, true);
       $this->validarProcessosTramitados($protocolo, true);
+      $this->reativarAgendamentos();
+  }
+
+  protected function executarAgendamentoPENViaBash()
+  {
+    putenv("DATABASE_HOST=org1-database");
+
+    $saidaEnvio = [];
+    $codigoRetornoEnvio = 1;
+    exec('php /tests/sei/src/sei/scripts/mod-pen/MonitoramentoRecebimentoTarefasPEN.php 2>&1', $saidaEnvio, $codigoRetornoEnvio);
+
+    $this->assertSame(0, $codigoRetornoEnvio, "Falha ao executar monitoramento de envio via bash: " . implode("\n", $saidaEnvio));
+
+    putenv("DATABASE_HOST=org2-database");
+
+    $saidaRecebimento = [];
+    $codigoRetornoRecebimento = 1;
+    exec('php /tests/sei/src/sei/scripts/mod-pen/MonitoramentoRecebimentoTarefasPEN.php 2>&1', $saidaRecebimento, $codigoRetornoRecebimento);
+
+    $this->assertSame(0, $codigoRetornoRecebimento, "Falha ao executar monitoramento de recebimento via bash: " . implode("\n", $saidaRecebimento));
+
+    putenv("DATABASE_HOST=org1-database");
+  }
+
+  protected function reativarAgendamentos()
+    {
+      if (DESATIVAR_AGENDAMENTO == 'true') {
+        $bancoOrgaoA = new DatabaseUtils(CONTEXTO_ORGAO_A);    
+        $bancoOrgaoA->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('S', 'PENAgendamentoRN::processarTarefasEnvioPEN'));
+        $bancoOrgaoA->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('S', 'PENAgendamentoRN::processarTarefasRecebimentoPEN'));
+
+        $bancoOrgaoB = new DatabaseUtils(CONTEXTO_ORGAO_B);
+        $bancoOrgaoB->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('S', 'PENAgendamentoRN::processarTarefasEnvioPEN'));
+        $bancoOrgaoB->execute("update infra_agendamento_tarefa set sin_ativo = ? where comando = ?", array('S', 'PENAgendamentoRN::processarTarefasRecebimentoPEN'));
+    }
   }
 
   protected function tramitarProcessoInternamente($unidadeDestino, $manterAbertoNaUnidadeAtual = false)
