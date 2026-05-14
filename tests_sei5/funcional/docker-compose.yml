@@ -51,6 +51,9 @@ services:
       - org2-database
       - selenium
     volumes:
+      - ../../src/scripts:/tests/sei/src/sei/scripts/mod-pen
+      - ../../src/scripts:/tests/sei/src/sei/scripts/mod-pen
+      - ../../vendor:/tests/sei/src/sei/web/modulos/pen/vendor
       - ${SEI_PATH}/sei:/opt/sei
       - ${SEI_PATH}/sip:/opt/sip
       - ${SEI_PATH}/infra:/opt/infra
